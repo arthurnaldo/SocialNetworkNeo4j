@@ -11,3 +11,17 @@ DISCORD_AUTH=
 ```
 
 make sure you have "Message Content Intent" enabled in the bot tab on the Discord Developer Portal
+
+install these dependencies:
+
+```
+{
+	"context"
+	"fmt"
+	"os"
+	"github.com/bwmarrin/discordgo"
+	"github.com/joho/godotenv"
+	"github.com/neo4j/neo4j-go-driver/v5/neo4j"
+
+}
+```
