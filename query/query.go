@@ -18,12 +18,16 @@ type Interaction struct {
 	Message2 string
 }
 
-//goroutine that listens for new messages, if message is a reply, send the data as an Interaction  
-func listener(discord discordgo, result chan Interaction) {
-	
-}
 
-func addDatabase() {
+func processMessage(ch chan Interaction, ctx *context.Background, driver *new4j.driver) {
+	interaction := <-ch
+	user1 := interaction.user1
+	user2 := interaction.user2
+	message1 := interaction.message1
+	message2 := interaction.message2
+
+	//add this to the database
+	
 
 }
 
@@ -49,16 +53,34 @@ func connectNeo4j() {
 }
 
 
-//conenect to discord chat websocket API
-func connectDiscord() {
-	discord, err := discordgo.New("Bot " + "authentication token")
+//connect to discord chat websocket API
+func connectDiscord(interactions chan<- Interaction) *discordgo.Session {
+	
+	discord, _ := discordgo.New("Bot " + os.Getenv("DISCORD_AUTH"))
+
+	discord.AddHandler(func(s *discordgo.Session, m *discordgo.MessageCreate) {
+		interactions <- Interaction{
+			UserID:    m.Author.ID,
+			ChannelID: m.ChannelID,
+			Content:   m.Content,
+		}
+	})
+
+	discord.Identify.Intents = discordgo.IntentsGuildMessages
+	discord.Open()
+
+	fmt.Println("Discord bot connected")
+
 	return discord
 }
 
 
 func main() {
-	ctx, driver = connectNeo4j()
-	discord = connectDiscord()
+	interactions := make(chan *Interaction, 100)
 
-	go listener(discord)
+	discord := connectDiscord(interactions)
+
+	go processMessage(interactions, ctx, driver)
+
+	select {}
 }
