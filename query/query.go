@@ -79,13 +79,26 @@ func connectDiscord(interactions chan<- Interaction) *discordgo.Session {
 	})
 
 	discord.AddHandler(func(s *discordgo.Session, m *discordgo.MessageCreate) {
-		interactions <- Interaction{
-			User1:    m.Author.ID,
-			User2:    m.ChannelID,
-			Message1: m.Content,
-			Message2: m.Content,
+
+		// check if the message is a reply
+		if m.MessageReference != nil && m.Reference().MessageID != "" {
+
+			// fetch the original message
+			origMsg, err := s.ChannelMessage(m.ChannelID, m.Reference().MessageID)
+			if err != nil {
+				fmt.Println("Failed to get referenced message:", err)
+				return
+			}
+
+			fmt.Println("[REPLY]", m.Author.ID, "→", origMsg.Author.ID)
+
+			interactions <- Interaction{
+				User1:    m.Author.ID,       // replier
+				User2:    origMsg.Author.ID, // user who was replied to
+				Message1: m.Content,         // reply content
+				Message2: origMsg.Content,   // original message content
+			}
 		}
-		fmt.Println(m.Author.ID)
 	})
 
 	discord.Identify.Intents = discordgo.IntentsGuildMessages | discordgo.IntentsDirectMessages | discordgo.IntentsMessageContent
