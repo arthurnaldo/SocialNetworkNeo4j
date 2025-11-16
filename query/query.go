@@ -18,7 +18,7 @@ type Interaction struct {
 	Message2 string
 }
 
-func processMessage(ch chan *Interaction, ctx context.Context, driver neo4j.DriverWithContext) {
+func processMessage(ch chan Interaction, ctx context.Context, driver neo4j.DriverWithContext) {
 	interaction := <-ch
 	user1 := interaction.User1
 	user2 := interaction.User2
@@ -57,7 +57,6 @@ func connectNeo4j() (context.Context, neo4j.DriverWithContext) {
 		dbUri,
 		neo4j.BasicAuth(dbUser, dbPassword, ""))
 
-	defer driver.Close(ctx)
 	err = driver.VerifyConnectivity(ctx)
 	if err != nil {
 		panic(err)
@@ -69,7 +68,15 @@ func connectNeo4j() (context.Context, neo4j.DriverWithContext) {
 // connect to discord chat websocket API
 func connectDiscord(interactions chan<- Interaction) *discordgo.Session {
 
-	discord, _ := discordgo.New("Bot " + os.Getenv("DISCORD_AUTH"))
+	discord, err := discordgo.New("Bot " + os.Getenv("DISCORD_AUTH"))
+
+	if err != nil {
+		panic(err)
+	}
+
+	discord.AddHandler(func(s *discordgo.Session, r *discordgo.Ready) {
+		fmt.Println("Ready as", s.State.User.Username)
+	})
 
 	discord.AddHandler(func(s *discordgo.Session, m *discordgo.MessageCreate) {
 		interactions <- Interaction{
@@ -78,9 +85,10 @@ func connectDiscord(interactions chan<- Interaction) *discordgo.Session {
 			Message1: m.Content,
 			Message2: m.Content,
 		}
+		fmt.Println(m.Author.ID)
 	})
 
-	discord.Identify.Intents = discordgo.IntentsGuildMessages
+	discord.Identify.Intents = discordgo.IntentsGuildMessages | discordgo.IntentsDirectMessages | discordgo.IntentsMessageContent
 	discord.Open()
 
 	fmt.Println("Discord bot connected")
@@ -89,9 +97,12 @@ func connectDiscord(interactions chan<- Interaction) *discordgo.Session {
 }
 
 func main() {
-	interactions := make(chan *Interaction, 100)
+	interactions := make(chan Interaction, 100)
 
 	ctx, driver := connectNeo4j()
+	defer driver.Close(ctx)
+
+	connectDiscord(interactions)
 
 	go processMessage(interactions, ctx, driver)
 
